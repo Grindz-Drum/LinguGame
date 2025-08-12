@@ -2,22 +2,26 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>LinguGame</title>
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
+  <!-- 세로모드 회전 유도(플레이 중에만 노출) -->
+  <div id="rotate-overlay" class="rotate-overlay" aria-hidden="true">
+    <div class="rotate-box">📱 가로모드로 돌려 주세요</div>
+  </div>
+
   <div id="app" class="app">
     <!-- 메인 화면 -->
     <section id="screen-main" class="screen">
       <h1 class="title">LinguGame</h1>
 
-      <img src="assets/penguins/penguin_main.png" alt="Penguin Mascot" class="mascot" />
+      <img src="assets/penguins/penguin_main.png" alt="Penguin Mascot" class="masor" />
 
       <div class="card">
         <h2 class="subtitle">설정</h2>
 
-        <!-- 닉네임 -->
         <div class="row">
           <label for="nickname" class="k">닉네임</label>
           <input id="nickname" class="input" type="text" placeholder="닉네임 입력" maxlength="16" />
@@ -26,7 +30,6 @@
 
         <div class="space"></div>
 
-        <!-- 메인 볼륨 -->
         <div class="pill volume">
           <span class="k">볼륨</span>
           <input id="vol-main" class="range" type="range" min="0" max="100" step="1" value="70" />
@@ -34,7 +37,6 @@
         </div>
 
         <div class="space"></div>
-
         <button id="btn-start" class="btn">Start</button>
       </div>
 
@@ -47,7 +49,7 @@
     </section>
 
     <!-- 플레이 화면 -->
-    <section id="screen-play" class="screen hidden">
+    <section id="screen-play" class="screen hidden" aria-live="polite">
       <header class="hud">
         <div class="pill"><span class="k">남은 시간</span> <b id="time">200</b>s</div>
         <div class="pill"><span class="k">점수</span> <b id="score">0</b> <span class="score-split" id="scoreSplit">(B 0 / C 0)</span></div>
@@ -55,7 +57,6 @@
           <span class="k">콤보</span> <b id="combo">0</b>
           <div class="gauge"><div class="bar" id="comboBar" style="width:0%"></div></div>
         </div>
-        <!-- 플레이 볼륨 -->
         <div class="pill volume">
           <span class="k">볼륨</span>
           <input id="vol" class="range" type="range" min="0" max="100" step="1" value="70" />
@@ -64,7 +65,7 @@
       </header>
 
       <div class="board-wrap">
-        <div id="board" class="board" aria-label="game board" role="grid"></div>
+        <div id="board" class="board" role="grid" aria-label="game board"></div>
       </div>
 
       <div class="row endbar">
@@ -73,7 +74,7 @@
       </div>
     </section>
 
-    <!-- 결과 화면 -->
+    <!-- 결과 화면(원하면 사용) -->
     <section id="screen-result" class="screen hidden">
       <div class="card">
         <h2 class="title">결과</h2>
