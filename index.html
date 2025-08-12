@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LinguGame</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- 메인 화면 -->
+    <section id="screen-main" class="screen">
+      <h1 class="title">LinguGame</h1>
+
+      <img src="assets/penguins/penguin_main.png" alt="Penguin Mascot" class="mascot" />
+
+      <div class="card">
+        <h2 class="subtitle">설정</h2>
+
+        <!-- 닉네임 -->
+        <div class="row">
+          <label for="nickname" class="k">닉네임</label>
+          <input id="nickname" class="input" type="text" placeholder="닉네임 입력" maxlength="16" />
+          <button id="btn-save-nick" class="btn secondary">저장</button>
+        </div>
+
+        <div class="space"></div>
+
+        <!-- 메인 볼륨 -->
+        <div class="pill volume">
+          <span class="k">볼륨</span>
+          <input id="vol-main" class="range" type="range" min="0" max="100" step="1" value="70" />
+          <button id="btn-mute-main" class="btn small secondary">음소거</button>
+        </div>
+
+        <div class="space"></div>
+
+        <button id="btn-start" class="btn">Start</button>
+      </div>
+
+      <div class="space"></div>
+
+      <div class="card">
+        <h2 class="subtitle">최근 기록 (최대 5개)</h2>
+        <div id="records" class="records"></div>
+      </div>
+    </section>
+
+    <!-- 플레이 화면 -->
+    <section id="screen-play" class="screen hidden">
+      <header class="hud">
+        <div class="pill"><span class="k">남은 시간</span> <b id="time">200</b>s</div>
+        <div class="pill"><span class="k">점수</span> <b id="score">0</b> <span class="score-split" id="scoreSplit">(B 0 / C 0)</span></div>
+        <div class="pill combo">
+          <span class="k">콤보</span> <b id="combo">0</b>
+          <div class="gauge"><div class="bar" id="comboBar" style="width:0%"></div></div>
+        </div>
+        <!-- 플레이 볼륨 -->
+        <div class="pill volume">
+          <span class="k">볼륨</span>
+          <input id="vol" class="range" type="range" min="0" max="100" step="1" value="70" />
+          <button id="btn-mute" class="btn small secondary">음소거</button>
+        </div>
+      </header>
+
+      <div class="board-wrap">
+        <div id="board" class="board" aria-label="game board" role="grid"></div>
+      </div>
+
+      <div class="row endbar">
+        <button id="btn-exit" class="btn secondary">메인으로</button>
+        <button id="btn-restart" class="btn secondary">다시하기</button>
+      </div>
+    </section>
+
+    <!-- 결과 화면 -->
+    <section id="screen-result" class="screen hidden">
+      <div class="card">
+        <h2 class="title">결과</h2>
+        <p class="subtitle">총점: <b id="r-total">0</b> / 베이스: <b id="r-base">0</b> / 콤보: <b id="r-bonus">0</b></p>
+        <p>최대 콤보: <b id="r-maxcombo">0</b></p>
+        <div class="space"></div>
+        <div>
+          <h3 class="subtitle">콤보 구간 로그</h3>
+          <div id="r-combo-log" class="combo-log"></div>
+        </div>
+        <div class="space"></div>
+        <div class="row">
+          <button id="btn-result-restart" class="btn">다시하기</button>
+          <button id="btn-result-main" class="btn secondary">메인으로</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="assets/js/audio.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/game.js"></script>
+</body>
+</html>
