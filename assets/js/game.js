@@ -1,8 +1,8 @@
-// LinguGame: 20x10, 빈칸 유지, 200s, 콤보창 2s, 모바일 가로모드/스크롤 방지
+// LinguGame core: 20x10, 빈칸 유지, 200s, 콤보 창 2s, 기록 닉네임 저장
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // UI
+  // UI refs
   const btnStart = $("btn-start");
   const btnExit  = $("btn-exit");
   const btnRestart = $("btn-restart");
@@ -12,61 +12,47 @@
   const boardEl  = $("board");
   const timeEl   = $("time");
   const scoreEl  = $("score");
+  const comboEl  = $("combo");
   const comboBar = $("comboBar");
 
-  // Const
-  const COLS = 20, ROWS = 10;
+  // Constants
+  const COLS = 20;
+  const ROWS = 10;
   const LIMIT_SEC = 200;
   const COMBO_WINDOW_MS = 2000;
 
   // State
-  let board = []; // 1..9 or null
+  let board = [];      // 1..9 or null
   let running = false;
   let startAt = 0;
   let remainSec = LIMIT_SEC;
   let tickId = null;
 
-  // Score/Combo
-  let scoreBase = 0, scoreBonus = 0;
-  let activeCombo = 0, lastSuccessAt = null, comboOpen = false;
-  let comboTickId = null, comboSegments = [], maxCombo = 0;
+  // Score & combo
+  let scoreBase = 0;
+  let scoreBonus = 0;
+  let activeCombo = 0;
+  let lastSuccessAt = null;
+  let comboOpen = false;
+  let comboTickId = null;
+  let comboSegments = [];
+  let maxCombo = 0;
 
   // Selection
-  let selecting = false, selectedSet = new Set(), selectedList = [], sumSelected = 0;
+  let selecting = false;
+  let selectedSet = new Set();
+  let selectedList = [];
+  let sumSelected = 0;
 
+  // Board helpers
   const IMG = (n) => `assets/penguins/penguin_${n}.png`;
   const keyOf = (r,c) => `${r},${c}`;
   const isEmpty = (r,c) => board[r][c] == null;
 
-  // ---- Orientation / Fullscreen helpers ----
-  async function requestLandscapeLock(){
-    // 유저 클릭 직후 호출: 전체화면 시도 → 가로잠금 시도 (안드 크롬은 대부분 OK)
-    const docEl = document.documentElement;
-    if (docEl.requestFullscreen) {
-      try { await docEl.requestFullscreen(); } catch (_) {}
-    }
-    if (screen.orientation && screen.orientation.lock) {
-      try { await screen.orientation.lock('landscape'); } catch (_) {}
-    }
-  }
-
-  function isPortrait(){
-    // iOS 사파리 대응: visualViewport/innerWidth 비교
-    const w = window.visualViewport ? visualViewport.width : window.innerWidth;
-    const h = window.visualViewport ? visualViewport.height : window.innerHeight;
-    return h > w;
-  }
-
-  function toggleRotateOverlay(){
-    const overlay = $("rotate-overlay");
-    // CSS에서 portrait + body.playing일 때만 보이지만, 혹시 모를 레이아웃 미스 대비
-    overlay.style.display = (document.body.classList.contains("playing") && isPortrait()) ? "flex" : "none";
-  }
-
-  // ---- Board / Render ----
   function initBoard(){
     board = Array.from({length: ROWS}, () =>
-      Array.from({length: COLS}, () => Math.floor(Math.random()*9)+1));
+      Array.from({length: COLS}, () => Math.floor(Math.random()*9)+1)
+    );
   }
 
   function renderBoard(){
@@ -76,7 +62,8 @@
         const v = board[r][c];
         const cell = document.createElement("div");
         cell.className = "cell" + (v==null ? " empty" : "");
-        cell.dataset.r = r; cell.dataset.c = c;
+        cell.dataset.r = r;
+        cell.dataset.c = c;
         if (v != null){
           const img = document.createElement("img");
           img.alt = `penguin ${v}`;
@@ -88,27 +75,20 @@
     }
   }
 
-  // 화면 크기에 맞춰 셀 크기 계산 (svh/visualViewport 기반)
-  function resizeBoardToFit(){
+  // Fit 20x10 board to viewport
+  function resizeBoardToFit() {
     const hud = document.querySelector(".hud");
     const hudH = hud ? hud.getBoundingClientRect().height : 0;
-
-    const vw = window.visualViewport ? visualViewport.width : window.innerWidth;
-    const vh = window.visualViewport ? visualViewport.height : window.innerHeight;
-
-    // 안전 여백, 카드/패딩 감안한 여유치
-    const maxW = vw * 0.96;
-    const maxH = (vh - hudH - 80); // 여백 80px 정도
+    const maxW = Math.min(document.querySelector(".app").getBoundingClientRect().width, window.innerWidth * 0.96);
+    const maxH = Math.min(window.innerHeight * 0.84 - hudH, 720);
 
     const gap = 4;
-    const cellW = Math.floor((maxW - gap*(COLS-1)) / COLS);
-    const cellH = Math.floor((maxH - gap*(ROWS-1)) / ROWS);
-    const cell = Math.max(24, Math.min(cellW, cellH));
-
+    const sizeW = Math.floor((maxW - gap*(COLS-1)) / COLS);
+    const sizeH = Math.floor((maxH - gap*(ROWS-1)) / ROWS);
+    const cell = Math.max(24, Math.min(sizeW, sizeH));
     document.documentElement.style.setProperty("--cell-size", `${cell}px`);
   }
 
-  // ---- HUD / Score ----
   function resetScore(){
     scoreBase = 0; scoreBonus = 0;
     activeCombo = 0; lastSuccessAt = null; comboOpen = false;
@@ -119,6 +99,8 @@
   function updateHUD(){
     timeEl.textContent = Math.max(0, Math.ceil(remainSec));
     scoreEl.innerHTML = `${Math.floor(scoreBase + scoreBonus)} <span class="score-split" id="scoreSplit">(B ${scoreBase} / C ${scoreBonus})</span>`;
+    $("combo").textContent = activeCombo;
+    // combo gauge
     if (lastSuccessAt && comboOpen){
       const left = Math.max(0, COMBO_WINDOW_MS - (performance.now() - lastSuccessAt));
       const pct = Math.max(0, Math.min(100, (left/COMBO_WINDOW_MS)*100));
@@ -134,7 +116,10 @@
       if (!comboOpen) { clearInterval(comboTickId); comboTickId = null; return; }
       const left = Math.max(0, COMBO_WINDOW_MS - (performance.now() - lastSuccessAt));
       comboBar.style.width = `${Math.max(0, Math.min(100, (left/COMBO_WINDOW_MS)*100))}%`;
-      if (left <= 0) closeComboSegment();
+      if (left <= 0){
+        // timeout -> close segment
+        closeComboSegment();
+      }
     }, 50);
   }
 
@@ -143,14 +128,17 @@
       comboSegments.push(activeCombo);
       scoreBonus += Math.floor(0.5 * activeCombo);
     }
-    activeCombo = 0; lastSuccessAt = null; comboOpen = false;
+    activeCombo = 0;
+    lastSuccessAt = null;
+    comboOpen = false;
     comboBar.style.width = "0%";
     updateHUD();
   }
 
-  // ---- Input / Selection ----
+  // Selection handling
   function bindBoardInputs(){
-    selectedSet.clear(); selectedList = []; sumSelected = 0;
+    selectedSet.clear();
+    selectedList = []; sumSelected = 0;
 
     const onDown = (e) => {
       const cell = getCellFromEvent(e);
@@ -212,16 +200,18 @@
   function commitSelection(){
     const ok = (sumSelected === 10 && selectedList.length >= 2);
     if (ok){
-      // 제거: 빈칸 유지(낙하/보충 없음)
+      // remove and leave holes
       for (const {r,c} of selectedList) board[r][c] = null;
       scoreBase += selectedList.length;
 
-      // 콤보 성공
+      // combo success
       const now = performance.now();
-      if (lastSuccessAt && (now - lastSuccessAt <= COMBO_WINDOW_MS)) activeCombo += 1;
-      else {
-        if (comboOpen) closeComboSegment(); // 이전 구간 정산
-        activeCombo = 1; comboOpen = true;
+      if (lastSuccessAt && (now - lastSuccessAt <= COMBO_WINDOW_MS)){
+        activeCombo += 1;
+      } else {
+        if (comboOpen) closeComboSegment(); // 끊겼다면 정산
+        activeCombo = 1;
+        comboOpen = true;
       }
       lastSuccessAt = now;
       if (activeCombo > maxCombo) maxCombo = activeCombo;
@@ -230,6 +220,7 @@
       renderBoard();
       if (isCleared()) { finishGame("clear"); return; }
     }
+    // reset selection
     clearSelectionCSS();
     selectedSet = new Set(); selectedList = []; sumSelected = 0;
     updateHUD();
@@ -244,7 +235,7 @@
     return true;
   }
 
-  // ---- Timer ----
+  // Timer
   function startTimer(){
     startAt = performance.now();
     remainSec = LIMIT_SEC;
@@ -256,34 +247,38 @@
         remainSec = 0;
         finishGame("timeout");
       }
-      // 콤보 타임아웃 안전망
-      if (comboOpen && lastSuccessAt && (now - lastSuccessAt > COMBO_WINDOW_MS)) closeComboSegment();
+      // combo window timeout check (게이지 타이머에서 close 처리되지만 안전망)
+      if (comboOpen && lastSuccessAt && (now - lastSuccessAt > COMBO_WINDOW_MS)){
+        closeComboSegment();
+      }
       updateHUD();
     }, 100);
   }
 
-  // ---- Lifecycle ----
-  async function startGame(){
+  function startGame(){
     UI.toPlay();
-    await requestLandscapeLock();          // 안드로이드: 가로잠금 시도
-    toggleRotateOverlay();                 // iOS 세로면 오버레이
-    running = true;
     AudioCtrl.play();
-    initBoard(); renderBoard(); bindBoardInputs();
-    resetScore(); resizeBoardToFit(); startTimer();
+    running = true;
+    initBoard();
+    renderBoard();
+    bindBoardInputs();
+    resetScore();
+    resizeBoardToFit();
+    startTimer();
   }
 
   function finishGame(result){
     if (!running) return;
     running = false;
     if (tickId) { clearInterval(tickId); tickId = null; }
+    // close ongoing combo
     if (comboOpen && activeCombo > 0) closeComboSegment();
     AudioCtrl.stop();
 
     const total = Math.floor(scoreBase + scoreBonus);
     const run = {
       ts: Date.now(),
-      nickname: UI.getNickname(),
+      nickname: UI.getNickname(),           // 닉네임 저장
       total, base: scoreBase, bonus: scoreBonus,
       maxCombo,
       duration: LIMIT_SEC - Math.max(0, Math.ceil(remainSec)),
@@ -292,7 +287,16 @@
     UI.pushRecord(run);
     UI.renderRecords();
 
-    UI.toMain(); // 결과 화면 쓰려면 UI.toResult()
+    // 결과 화면 반영 (원하면 활성화)
+    $("r-total").textContent = total;
+    $("r-base").textContent = scoreBase;
+    $("r-bonus").textContent = scoreBonus;
+    $("r-maxcombo").textContent = maxCombo;
+    $("r-combo-log").innerHTML = comboSegments.length
+      ? comboSegments.map(n => `<div>콤보 ${n} → +${Math.floor(0.5*n)}</div>`).join("")
+      : "<div>기록 없음</div>";
+
+    UI.toMain(); // 결과 화면을 쓰고 싶으면 UI.toResult()로 바꾸세요.
   }
 
   function exitToMain(){
@@ -300,22 +304,15 @@
     else { AudioCtrl.stop(); UI.toMain(); }
   }
 
-  // ---- Events ----
+  // bootstrap
   window.addEventListener("DOMContentLoaded", () => {
-    $("btn-start").addEventListener("click", startGame);
-    $("btn-exit").addEventListener("click", exitToMain);
-    $("btn-restart").addEventListener("click", startGame);
-    $("btn-result-restart").addEventListener("click", startGame);
-    $("btn-result-main").addEventListener("click", exitToMain);
+    btnStart.addEventListener("click", startGame);
+    btnExit.addEventListener("click", exitToMain);
+    btnRestart.addEventListener("click", startGame);
+    btnResultRestart.addEventListener("click", startGame);
+    btnResultMain.addEventListener("click", exitToMain);
 
     resizeBoardToFit();
   });
-
-  // 방향/뷰포트 변화에 대응
-  window.addEventListener("resize", () => { resizeBoardToFit(); toggleRotateOverlay(); });
-  window.addEventListener("orientationchange", () => { setTimeout(() => { resizeBoardToFit(); toggleRotateOverlay(); }, 100); });
-  if (window.visualViewport){
-    visualViewport.addEventListener("resize", () => { resizeBoardToFit(); toggleRotateOverlay(); });
-    visualViewport.addEventListener("scroll", () => { resizeBoardToFit(); toggleRotateOverlay(); });
-  }
+  window.addEventListener("resize", resizeBoardToFit);
 })();
