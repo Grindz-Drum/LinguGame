@@ -1,4 +1,4 @@
-// 화면 전환 + 닉네임/기록 로컬 저장/복원 + 볼륨 동기화 + 가로 에뮬레이션 토글
+// 화면 전환 + 로컬 저장 + 볼륨 동기화 + 세로 모바일에서 회전/스케일 피팅
 const $ = (id) => document.getElementById(id);
 
 const UI = (() => {
@@ -8,6 +8,8 @@ const UI = (() => {
   const main = $("screen-main");
   const play = $("screen-play");
   const result = $("screen-result");
+  const fitBox = $("fit");
+  const appBox = $("app");
 
   function toMain(){ main.classList.remove("hidden"); play.classList.add("hidden"); result.classList.add("hidden"); }
   function toPlay(){ play.classList.remove("hidden"); main.classList.add("hidden"); result.classList.add("hidden"); }
@@ -46,7 +48,7 @@ const UI = (() => {
       : `<div class="rec">아직 기록이 없습니다.</div>`;
   }
 
-  // 볼륨 슬라이더 동기화(메인/플레이)
+  // 볼륨 슬라이더 동기화
   function bindVolumeControls(){
     const mainVol = $("vol-main"); const mainMute = $("btn-mute-main");
     const playVol = $("vol");      const playMute = $("btn-mute");
@@ -59,13 +61,8 @@ const UI = (() => {
     };
 
     syncInputsFromAudio();
-
-    const onSlide = (e) => {
-      const v = parseInt(e.target.value, 10) / 100;
-      AudioCtrl.setVolume(v);
-      syncInputsFromAudio();
-    };
-    const onMute = () => { AudioCtrl.toggleMute(); syncInputsFromAudio(); };
+    const onSlide = e => { AudioCtrl.setVolume(parseInt(e.target.value,10)/100); syncInputsFromAudio(); };
+    const onMute  = () => { AudioCtrl.toggleMute(); syncInputsFromAudio(); };
 
     mainVol.addEventListener("input", onSlide);
     playVol.addEventListener("input", onSlide);
@@ -73,22 +70,55 @@ const UI = (() => {
     playMute.addEventListener("click", onMute);
   }
 
-  // 가로 에뮬레이션 토글: 모바일 + 세로면 body에 상태 클래스
-  function updateEmulatedLandscape(){
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const portrait = window.matchMedia("(orientation: portrait)").matches;
-    document.body.classList.toggle("portrait", portrait);
-    document.body.classList.toggle("emu-landscape", isMobile && portrait);
+  // === 세로 모바일에서 회전 + 스케일 피팅 ===
+  function isMobile(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); }
+  function isPortrait(){
+    return window.matchMedia && window.matchMedia("(orientation: portrait)").matches;
+  }
+
+  function applyFitTransform(){
+    // 기본: 변환 없음
+    fitBox.style.transform = "";
+    fitBox.style.left = "";
+    fitBox.style.top = "";
+    fitBox.style.position = "";
+
+    if (!(isMobile() && isPortrait())) return; // 세로 모바일이 아니면 원래대로
+
+    // 세로 모바일: 화면만 가로처럼 보이도록 90deg 회전 + 스케일
+    // 측정 위해 transform 잠시 제거
+    const prev = fitBox.style.transform;
+    fitBox.style.transform = "none";
+
+    const vw = (window.visualViewport ? visualViewport.width : window.innerWidth);
+    const vh = (window.visualViewport ? visualViewport.height : window.innerHeight);
+    const appW = appBox.offsetWidth;
+    const appH = appBox.offsetHeight;
+
+    // 회전 후: 가로폭 ← appH, 세로높이 ← appW
+    const pad = 12; // 가장자리 여유
+    const scaleX = (vw - pad) / appH;
+    const scaleY = (vh - pad) / appW;
+    const s = Math.max(0.5, Math.min(scaleX, scaleY)); // 너무 작아지지 않게 하한선
+
+    fitBox.style.position = "absolute";
+    fitBox.style.left = "50%";
+    fitBox.style.top = "50%";
+    fitBox.style.transformOrigin = "center center";
+    fitBox.style.transform = `translate(-50%,-50%) rotate(90deg) scale(${s})`;
+
+    // 복구용 저장 없음(그대로 유지)
+    void(prev);
   }
 
   function init(){
     bindNickname();
     renderRecords();
     bindVolumeControls();
-    updateEmulatedLandscape();
+    applyFitTransform();
   }
 
-  return { toMain, toPlay, toResult, init, getNickname, pushRecord, renderRecords, updateEmulatedLandscape };
+  return { toMain, toPlay, toResult, init, getNickname, pushRecord, renderRecords, applyFitTransform };
 })();
 
 // 초기화

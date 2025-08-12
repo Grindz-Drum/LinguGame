@@ -1,4 +1,4 @@
-// LinguGame: 20x10, 빈칸 유지, 200s, 콤보창 2s, 가로 에뮬레이션(세로 상태 모바일에서 화면만 90° 회전)
+// LinguGame: 20x10, 빈칸 유지, 200s, 콤보창 2s, 세로 모바일 회전/스케일 대응
 (() => {
   const $ = (id) => document.getElementById(id);
 
@@ -38,7 +38,7 @@
   const keyOf = (r,c) => `${r},${c}`;
   const isEmpty = (r,c) => board[r][c] == null;
 
-  // ---- Board / Render ----
+  // ----- Board / Render -----
   function initBoard(){
     board = Array.from({length: ROWS}, () =>
       Array.from({length: COLS}, () => Math.floor(Math.random()*9)+1));
@@ -63,14 +63,15 @@
     }
   }
 
-  // 화면 크기에 맞춰 셀 크기 계산
+  // 화면 크기에 맞춰 셀 크기 계산 (회전/스케일 고려)
   function getViewportSize(){
     const vw = window.visualViewport ? visualViewport.width : window.innerWidth;
     const vh = window.visualViewport ? visualViewport.height : window.innerHeight;
-    // 세로 모바일에서 가로 에뮬레이션 중이면 가상 가로/세로를 바꿔 계산
-    const emu = document.body.classList.contains("emu-landscape");
-    const portrait = document.body.classList.contains("portrait");
-    if (emu && portrait) return { w: vh, h: vw };
+    // 세로 모바일이면 UI에서 회전/스케일로 화면을 맞추고 있으니,
+    // 논리적으로는 가로=vh, 세로=vw 로 계산
+    const portrait = window.matchMedia && window.matchMedia("(orientation: portrait)").matches;
+    const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (mobile && portrait) return { w: vh, h: vw };
     return { w: vw, h: vh };
   }
 
@@ -81,7 +82,7 @@
     const { w, h } = getViewportSize();
 
     const maxW = w * 0.96;
-    const maxH = (h - hudH - 80);
+    const maxH = (h - hudH - 80); // 여백
 
     const gap = 4;
     const cellW = Math.floor((maxW - gap*(COLS-1)) / COLS);
@@ -91,7 +92,7 @@
     document.documentElement.style.setProperty("--cell-size", `${cell}px`);
   }
 
-  // ---- HUD / Score ----
+  // ----- HUD / Score -----
   function resetScore(){
     scoreBase = 0; scoreBonus = 0;
     activeCombo = 0; lastSuccessAt = null; comboOpen = false;
@@ -131,7 +132,7 @@
     updateHUD();
   }
 
-  // ---- Input / Selection ----
+  // ----- Input / Selection -----
   function bindBoardInputs(){
     selectedSet.clear(); selectedList = []; sumSelected = 0;
 
@@ -168,7 +169,6 @@
 
   function getCellFromEvent(e){
     const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
-    // 회전 변환은 레이아웃 상에서 적용되므로 elementFromPoint는 시각 위치 기준으로 정상 동작
     let t = document.elementFromPoint(p.clientX, p.clientY);
     if (!t) return null;
     if (t.classList.contains("cell")) return t;
@@ -196,7 +196,7 @@
   function commitSelection(){
     const ok = (sumSelected === 10 && selectedList.length >= 2);
     if (ok){
-      // 제거: 빈칸 유지(낙하/보충 없음)
+      // 제거: 빈칸 유지
       for (const {r,c} of selectedList) board[r][c] = null;
       scoreBase += selectedList.length;
 
@@ -228,7 +228,7 @@
     return true;
   }
 
-  // ---- Timer ----
+  // ----- Timer -----
   function startTimer(){
     startAt = performance.now();
     remainSec = LIMIT_SEC;
@@ -245,9 +245,11 @@
     }, 100);
   }
 
-  // ---- Lifecycle ----
+  // ----- Lifecycle -----
   function startGame(){
     UI.toPlay();
+    // 회전/스케일 재적용 후 보드 리사이즈
+    UI.applyFitTransform();
     running = true;
     AudioCtrl.play();
     initBoard(); renderBoard(); bindBoardInputs();
@@ -264,24 +266,33 @@
     const total = Math.floor(scoreBase + scoreBonus);
     const run = {
       ts: Date.now(),
-      nickname: UI.getNickname(),
+      nickname: localStorage.getItem("lingu_nickname") || "Player",
       total, base: scoreBase, bonus: scoreBonus,
       maxCombo,
       duration: LIMIT_SEC - Math.max(0, Math.ceil(remainSec)),
       result
     };
-    UI.pushRecord(run);
-    UI.renderRecords();
-
-    UI.toMain(); // 결과 화면을 쓰려면 UI.toResult()
+    // 기록 저장/갱신
+    try {
+      const list = JSON.parse(localStorage.getItem("lingu_records") || "[]");
+      list.unshift(run); while (list.length > 5) list.pop();
+      localStorage.setItem("lingu_records", JSON.stringify(list));
+    } catch(_) {}
+    // 메인에서 최신 렌더
+    UI.toMain(); UI.applyFitTransform();
+    // 약간 늦춰서 리스트 렌더(전환 후 DOM 준비)
+    setTimeout(() => {
+      const UI_mod = window.UI || null;
+      UI_mod && UI_mod.renderRecords && UI_mod.renderRecords();
+    }, 0);
   }
 
   function exitToMain(){
     if (running) finishGame("exit");
-    else { AudioCtrl.stop(); UI.toMain(); }
+    else { AudioCtrl.stop(); UI.toMain(); UI.applyFitTransform(); }
   }
 
-  // ---- Events ----
+  // ----- Events -----
   window.addEventListener("DOMContentLoaded", () => {
     $("btn-start").addEventListener("click", startGame);
     $("btn-exit").addEventListener("click", exitToMain);
@@ -289,13 +300,17 @@
     $("btn-result-restart").addEventListener("click", startGame);
     $("btn-result-main").addEventListener("click", exitToMain);
 
-    resizeBoardToFit();
+    // 최초 메인 화면 피팅
+    UI.applyFitTransform();
   });
 
-  // 방향/뷰포트 변화 → 회전 에뮬/보드 리사이즈 갱신
+  // 화면/주소창/회전 변화 대응
   function onViewportChange(){
-    UI.updateEmulatedLandscape();
-    resizeBoardToFit();
+    UI.applyFitTransform();
+    // 플레이 중이면 보드도 재계산
+    if (!document.getElementById("screen-play").classList.contains("hidden")){
+      resizeBoardToFit();
+    }
   }
   window.addEventListener("resize", onViewportChange);
   window.addEventListener("orientationchange", () => setTimeout(onViewportChange, 80));

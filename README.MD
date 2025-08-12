@@ -1,4 +1,4 @@
-**LinguGame Project - Base Structure - v0.1.0 Beta**
+**LinguGame Project - Base Structure - v0.1.1 Beta**
 
 - 콤보 보너스: 콤보 구간마다 floor(0.5 × 콤보길이)가 누적됩니다.
 
@@ -7,6 +7,8 @@
 - 보드: 10×20. 제한시간: 200초. 콤보 창: 2초.
 
 - 기록은 로컬 localStorage에 최근 5개만 저장(간단 버전).
+
+- 모바일 가로화면 대응
 
 ## License
 
