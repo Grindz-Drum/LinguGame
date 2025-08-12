@@ -1,9 +1,9 @@
-// 화면 전환 + 닉네임/기록 로컬 저장/복원 + 메인/플레이 볼륨 연동
+// 화면 전환 + 닉네임/기록 로컬 저장/복원 + 볼륨 동기화 + 가로 에뮬레이션 토글
 const $ = (id) => document.getElementById(id);
 
 const UI = (() => {
   const KEY_NICK = "lingu_nickname";
-  const KEY_REC  = "lingu_records"; // 최근 5게임
+  const KEY_REC  = "lingu_records";
 
   const main = $("screen-main");
   const play = $("screen-play");
@@ -20,12 +20,12 @@ const UI = (() => {
     $("nickname").value = getNickname();
     $("btn-save-nick").addEventListener("click", () => {
       setNickname($("nickname").value.trim());
-      // 즉시 입력값 정리
       $("nickname").value = getNickname();
+      renderRecords();
     });
   }
 
-  // 최근 기록
+  // 기록
   function getRecords(){
     try { return JSON.parse(localStorage.getItem(KEY_REC) || "[]"); }
     catch { return []; }
@@ -46,22 +46,18 @@ const UI = (() => {
       : `<div class="rec">아직 기록이 없습니다.</div>`;
   }
 
-  // 메인/플레이 볼륨 슬라이더 동기화
+  // 볼륨 슬라이더 동기화(메인/플레이)
   function bindVolumeControls(){
-    const mainVol = $("vol-main");
-    const mainMute = $("btn-mute-main");
-    const playVol = $("vol");
-    const playMute = $("btn-mute");
+    const mainVol = $("vol-main"); const mainMute = $("btn-mute-main");
+    const playVol = $("vol");      const playMute = $("btn-mute");
 
     const syncInputsFromAudio = () => {
       const v = Math.round(AudioCtrl.getVolume() * 100);
-      mainVol.value = v;
-      playVol.value = v;
-      mainMute.textContent = (v === 0 ? "음소거 해제" : "음소거");
-      playMute.textContent = (v === 0 ? "음소거 해제" : "음소거");
+      mainVol.value = v; playVol.value = v;
+      const lbl = (v === 0 ? "음소거 해제" : "음소거");
+      mainMute.textContent = lbl; playMute.textContent = lbl;
     };
 
-    // 초기값 반영
     syncInputsFromAudio();
 
     const onSlide = (e) => {
@@ -69,10 +65,7 @@ const UI = (() => {
       AudioCtrl.setVolume(v);
       syncInputsFromAudio();
     };
-    const onMute = () => {
-      AudioCtrl.toggleMute();
-      syncInputsFromAudio();
-    };
+    const onMute = () => { AudioCtrl.toggleMute(); syncInputsFromAudio(); };
 
     mainVol.addEventListener("input", onSlide);
     playVol.addEventListener("input", onSlide);
@@ -80,17 +73,26 @@ const UI = (() => {
     playMute.addEventListener("click", onMute);
   }
 
+  // 가로 에뮬레이션 토글: 모바일 + 세로면 body에 상태 클래스
+  function updateEmulatedLandscape(){
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const portrait = window.matchMedia("(orientation: portrait)").matches;
+    document.body.classList.toggle("portrait", portrait);
+    document.body.classList.toggle("emu-landscape", isMobile && portrait);
+  }
+
   function init(){
     bindNickname();
     renderRecords();
     bindVolumeControls();
+    updateEmulatedLandscape();
   }
 
-  return { toMain, toPlay, toResult, init, getNickname, pushRecord, renderRecords };
+  return { toMain, toPlay, toResult, init, getNickname, pushRecord, renderRecords, updateEmulatedLandscape };
 })();
 
 // 초기화
 window.addEventListener("DOMContentLoaded", () => {
-  AudioCtrl.init();  // 먼저 로드해서 볼륨을 UI에 반영 가능
+  AudioCtrl.init();
   UI.init();
 });

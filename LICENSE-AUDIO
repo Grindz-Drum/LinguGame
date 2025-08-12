@@ -1,0 +1,19 @@
+Audio Assets License — CC BY-NC-ND 4.0
+
+적용 범위 (Scope)
+- 본 리포지터리 내 다음 경로의 모든 음원 파일에 적용됩니다:
+  /assets/audio/**  및 프로젝트 내의 .mp3, .wav, .ogg, .m4a 파일
+- 소스 코드와 음원이 아닌 리소스(이미지·폰트 등)에는 적용되지 않습니다.
+  (코드 및 비(음원) 자산은 MIT License를 따릅니다. 자세한 내용은 LICENSE 파일 참조)
+
+허용 사항 (You are free to)
+- 공유(Share): 어떤 매체/형식으로든 원본 파일을 복사·재배포할 수 있습니다.
+
+조건 (Under the following terms)
+- 저작자 표시(Attribution, BY): 적절한 출처 표시가 필요합니다.
+- 비상업적(NonCommercial, NC): 상업적 목적의 이용은 금지됩니다.
+- 변경금지(NoDerivatives, ND): 리믹스·변환·2차적 저작물 배포는 금지됩니다.
+  (개인적 편집은 가능하나, 수정본을 배포할 수 없습니다.)
+
+정식 라이선스 원문 (Full legal code)
+- https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
